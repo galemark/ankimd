@@ -324,11 +324,25 @@
   });
 
   // --- Convert ---
+  const ANKI_STYLE = `<style>
+p{margin:0 0 4px 0}
+h1,h2,h3,h4{margin:8px 0 2px 0;font-size:1em}
+ul,ol{margin:2px 0 4px 0;padding-left:20px}
+li{margin:1px 0}
+table{border-collapse:collapse;width:100%;margin:4px 0;font-size:0.9em}
+th,td{border:1px solid #ccc;padding:3px 6px;text-align:left}
+th{background:#f0f0f0}
+strong{font-weight:bold}
+em{font-style:italic}
+code{font-family:monospace;background:#f4f4f4;padding:1px 3px;border-radius:2px}
+blockquote{margin:4px 0;padding-left:10px;border-left:3px solid #ccc;color:#555}
+</style>`;
+
   function convertToAnkiHTML(markdown) {
     marked.setOptions({ gfm: true, breaks: false });
     let html = marked.parse(markdown);
     html = html.replace(/>\s{2,}</g, '><').trim();
-    return html;
+    return ANKI_STYLE + '\n' + html;
   }
 
   async function convert() {
