@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anki Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --accent: #c8f060;
+    --accent-dim: #a8cc40;
+    --text: #e8e8e8;
+    --muted: #666;
+    --success-bg: #0e1a00;
+    --error: #ff5f5f;
+    --radius: 8px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+  }
+
+  header {
+    width: 100%;
+    max-width: 680px;
+    margin-bottom: 40px;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+  }
+
+  .logo span {
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .tagline {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 680px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .card-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .char-count {
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    padding: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.7;
+    caret-color: var(--accent);
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  .actions {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .btn-convert {
+    flex: 1;
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-convert:hover { background: var(--accent-dim); }
+  .btn-convert:active { transform: scale(0.98); }
+
+  .btn-clear {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .btn-clear:hover { color: var(--text); border-color: #444; }
+
+  /* Output section */
+  .output-section {
+    width: 100%;
+    max-width: 680px;
+    margin-top: 20px;
+    display: none;
+  }
+
+  .output-section.visible { display: block; }
+
+  .status-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+
+  .status-banner.success {
+    background: var(--success-bg);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .status-banner.error {
+    background: #1a0000;
+    border: 1px solid var(--error);
+    color: var(--error);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .success .status-dot { background: var(--accent); }
+  .error .status-dot { background: var(--error); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .output-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .output-label { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+  .btn-copy {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .btn-copy:hover { background: var(--accent); color: #0e0e0e; }
+
+  .output-content {
+    padding: 16px;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: #aaa;
+    word-break: break-all;
+    max-height: 240px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+
+  /* Auto mode indicator */
+  .auto-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(200,240,96,0.08);
+    border: 1px solid rgba(200,240,96,0.2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    margin-top: 12px;
+  }
+
+  .auto-badge-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  footer {
+    margin-top: 48px;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">anki<span>md</span></div>
+  <div class="tagline">Markdown → Anki-ready HTML</div>
+</header>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-label">Markdown Input</span>
+    <span class="char-count" id="charCount">0 chars</span>
+  </div>
+  <textarea id="mdInput" placeholder="Paste your Gemini markdown here...&#10;&#10;Or share text from the Shortcuts app to auto-convert."></textarea>
+  <div class="actions">
+    <button class="btn-convert" onclick="convert()">Convert →</button>
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </div>
+</div>
+
+<div class="output-section" id="outputSection">
+  <div class="status-banner success" id="statusBanner">
+    <div class="status-dot"></div>
+    <span id="statusText">Converted & copied to clipboard</span>
+  </div>
+  <div class="output-card">
+    <div class="output-header">
+      <span class="output-label">HTML Output</span>
+      <button class="btn-copy" onclick="copyOutput()">Copy again</button>
+    </div>
+    <div class="output-content" id="htmlOutput"></div>
+  </div>
+</div>
+
+<footer>paste into anki · no data leaves your device</footer>
+
+<!-- Marked.js CDN (loaded from cdnjs, no tracking) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+<script>
+  const mdInput = document.getElementById('mdInput');
+  const htmlOutput = document.getElementById('htmlOutput');
+  const outputSection = document.getElementById('outputSection');
+  const statusBanner = document.getElementById('statusBanner');
+  const statusText = document.getElementById('statusText');
+  const charCount = document.getElementById('charCount');
+
+  // --- Char counter ---
+  mdInput.addEventListener('input', () => {
+    charCount.textContent = mdInput.value.length + ' chars';
+  });
+
+  // --- Convert ---
+  function convertToAnkiHTML(markdown) {
+    marked.setOptions({ gfm: true, breaks: false });
+    let html = marked.parse(markdown);
+    html = html.replace(/>\s{2,}</g, '><').trim();
+    return html;
+  }
+
+  async function convert() {
+    const md = mdInput.value.trim();
+    if (!md) return;
+
+    let html;
+    try {
+      html = convertToAnkiHTML(md);
+    } catch (e) {
+      showStatus('error', 'Conversion failed: ' + e.message);
+      outputSection.classList.add('visible');
+      return;
+    }
+
+    htmlOutput.textContent = html;
+    outputSection.classList.add('visible');
+
+    const copied = await copyToClipboard(html);
+    showStatus('success', copied ? 'Converted & copied to clipboard ✓' : 'Converted — tap "Copy again" to copy');
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function copyOutput() {
+    const text = htmlOutput.textContent;
+    const ok = await copyToClipboard(text);
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = ok ? 'Copied ✓' : 'Failed';
+    setTimeout(() => btn.textContent = 'Copy again', 1800);
+  }
+
+  function showStatus(type, message) {
+    statusBanner.className = 'status-banner ' + type;
+    statusText.textContent = message;
+  }
+
+  function clearAll() {
+    mdInput.value = '';
+    htmlOutput.textContent = '';
+    outputSection.classList.remove('visible');
+    charCount.textContent = '0 chars';
+  }
+
+  // --- URL parameter: ?text=... ---
+  // Used by iOS Shortcut to pass markdown directly
+  (async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const text = params.get('text');
+    if (text && text.trim()) {
+      mdInput.value = text;
+      charCount.textContent = text.length + ' chars';
+
+      // Auto-convert and auto-copy
+      let html;
+      try {
+        html = convertToAnkiHTML(text);
+      } catch (e) {
+        showStatus('error', 'Conversion failed: ' + e.message);
+        outputSection.classList.add('visible');
+        return;
+      }
+
+      htmlOutput.textContent = html;
+      outputSection.classList.add('visible');
+
+      const copied = await copyToClipboard(html);
+      showStatus('success', copied
+        ? 'Auto-converted & copied — ready to paste into Anki ✓'
+        : 'Auto-converted — tap "Copy again" to copy');
+
+      // Show auto badge on input card
+      const badge = document.createElement('div');
+      badge.className = 'auto-badge';
+      badge.innerHTML = '<span class="auto-badge-dot"></span>via shortcut';
+      document.querySelector('.card').appendChild(badge);
+    }
+  })();
+</script>
+</body>
+</html>
