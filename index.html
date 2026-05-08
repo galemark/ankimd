@@ -323,63 +323,52 @@
     charCount.textContent = mdInput.value.length + ' chars';
   });
 
-  // ============================================================
-  // ANKI STYLE — Aggressive reset, desktop-mimicry
-  // ============================================================
-  const ANKI_STYLE = `<style>
-*{margin:0;padding:0;box-sizing:border-box}
-div{margin-bottom:4px;line-height:1.3}
-div:last-child{margin-bottom:0}
-h1,h2,h3,h4,h5,h6{font-size:1em;font-weight:bold;margin:6px 0 2px 0;line-height:1.3}
-h1:first-child,h2:first-child,h3:first-child{margin-top:0}
-ul,ol{margin:4px 0 8px 25px}
-li{margin-bottom:2px}
-li div{margin-bottom:0}
-table{border-collapse:collapse;width:100%;margin:8px 0;font-size:0.9em}
-th,td{border:1px solid #ccc;padding:3px 6px;vertical-align:top}
-th{font-weight:bold}
-strong,b{font-weight:bold;color:inherit !important}
-th strong,th b,th{color:#c8f060 !important}
-em{font-style:italic}
-code{font-family:monospace;font-size:0.9em;background:#f4f4f4;padding:1px 3px;border-radius:2px}
-pre{margin:3px 0;padding:6px;background:#f4f4f4;border-radius:3px;font-size:0.85em;overflow-x:auto}
-blockquote{margin:3px 0;padding-left:8px;border-left:3px solid #ccc}
-</style>`;
+
 
   // ============================================================
-  // CUSTOM MARKED RENDERER — Desktop-mimicry output
-  // Paragraphs → <div>, list items → <li><div>content</div></li>
+  // CUSTOM MARKED RENDERER — Normal Desktop mimicry
+  // - No <style> block
+  // - Paragraphs → <div>
+  // - List items → <li><div>content</div></li>
+  // - Tables → no <thead>/<th>, header cells become <td><b>text</b></td>
+  // - Headings → no id attributes
   // ============================================================
   function buildRenderer() {
     const renderer = new marked.Renderer();
 
-    // Paragraphs → <div> instead of <p>
+    // Paragraphs → <div>
     renderer.paragraph = (text) => `<div>${text}</div>`;
+
+    // Bold → <b> (white in Anki theme)
+    renderer.strong = (text) => `<b>${text}</b>`;
 
     // List items → <li><div>content</div></li>
     renderer.listitem = (text) => {
-      // text may already contain a trailing newline — strip it
       const clean = text.trim();
-      // If it already starts with a block element, don't double-wrap
       if (/^<div|^<ul|^<ol/.test(clean)) {
         return `<li>${clean}</li>`;
       }
       return `<li><div>${clean}</div></li>`;
     };
 
-    // Strip id attributes from headings
+    // Headings — no id attributes
     renderer.heading = (text, level) => `<h${level}>${text}</h${level}>`;
 
-    // Tables — inline styles for maximum Anki compatibility
+    // Tables — no <thead>/<th>
+    // Header cells → <td><strong>text</strong></td> (green in Anki theme)
+    // Body cells   → <td>text</td> (bold within body handled by renderer.strong → <b>)
     renderer.table = (header, body) =>
-      `<table><thead>${header}</thead><tbody>${body}</tbody></table>`;
+      `<table><tbody>${header}${body}</tbody></table>`;
 
     renderer.tablerow = (content) => `<tr>${content}</tr>`;
 
     renderer.tablecell = (content, flags) => {
-      const tag = flags.header ? 'th' : 'td';
-      const align = flags.align ? ` style="text-align:${flags.align}"` : '';
-      return `<${tag}${align}>${content}</${tag}>`;
+      if (flags.header) {
+        // Strip any <b> tags Marked may have added, then wrap in <strong>
+        const clean = content.replace(/<\/?b>/g, '');
+        return `<td><strong>${clean}</strong></td>`;
+      }
+      return `<td>${content}</td>`;
     };
 
     return renderer;
@@ -389,14 +378,10 @@ blockquote{margin:3px 0;padding-left:8px;border-left:3px solid #ccc}
   // CONVERSION
   // ============================================================
   function convertToAnkiHTML(markdown) {
-    // Strip LaTeX/math delimiters — replace with plain text
-    // \( ... \) inline math
+    // Strip LaTeX/math delimiters — keep plain text only
     markdown = markdown.replace(/\\\((.+?)\\\)/g, '$1');
-    // \[ ... \] block math
     markdown = markdown.replace(/\\\[(.+?)\\\]/gs, '$1');
-    // $$ ... $$ block math
     markdown = markdown.replace(/\$\$(.+?)\$\$/gs, '$1');
-    // $ ... $ inline math (only when surrounded by non-space)
     markdown = markdown.replace(/\$([^\s$][^$]*[^\s$]|\S)\$/g, '$1');
 
     marked.setOptions({ gfm: true, breaks: false });
@@ -404,10 +389,15 @@ blockquote{margin:3px 0;padding-left:8px;border-left:3px solid #ccc}
 
     let html = marked.parse(markdown);
 
-    // Collapse whitespace between tags — prevents Anki adding ghost space
-    html = html.replace(/>\s{2,}</g, '><').trim();
+    // Decode HTML entities for quotes/apostrophes → plain characters
+    html = html.replace(/&#39;/g, "'");
+    html = html.replace(/&quot;/g, '"');
 
-    return ANKI_STYLE + html;
+    // Aggressive minification — single continuous line, no whitespace between tags
+    html = html.replace(/>\s+</g, '><').trim();
+
+    // Wrap in double-div
+    return `<div><div>${html}</div></div>`;
   }
 
   // ============================================================
