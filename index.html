@@ -378,11 +378,38 @@
   // CONVERSION
   // ============================================================
   function convertToAnkiHTML(markdown) {
-    // Strip LaTeX/math delimiters — keep plain text only
-    markdown = markdown.replace(/\\\((.+?)\\\)/g, '$1');
-    markdown = markdown.replace(/\\\[(.+?)\\\]/gs, '$1');
-    markdown = markdown.replace(/\$\$(.+?)\$\$/gs, '$1');
-    markdown = markdown.replace(/\$([^\s$][^$]*[^\s$]|\S)\$/g, '$1');
+    // ── Gemini paste-cleaning ────────────────────────────────────
+    // 1. Non-breaking spaces → regular spaces (lets marked recognise list markers)
+    markdown = markdown.replace(/\u00A0/g, ' ');
+
+    // 2. Remove orphan pipe-only lines (e.g. a bare "|" row) that fracture tables
+    markdown = markdown.replace(/^[ \t]*\|[ \t]*$/gm, '');
+
+    // 3. Remove blank lines between consecutive table rows so the table stays
+    //    one continuous block — matches an empty/whitespace-only line that sits
+    //    between a line ending with | and a line starting with |
+    markdown = markdown.replace(/([ \t]*\|[^\n]*)\n[ \t]*\n([ \t]*\|)/g, '$1\n$2');
+    // Run twice to catch adjacent gaps (non-overlapping matches miss back-to-back ones)
+    markdown = markdown.replace(/([ \t]*\|[^\n]*)\n[ \t]*\n([ \t]*\|)/g, '$1\n$2');
+
+    // 4. Collapse 3+ blank lines left over from removal steps above (max 1 blank line)
+    markdown = markdown.replace(/\n{3,}/g, '\n\n');
+
+    // 5. Normalise list-marker spacing so marked treats items as one list
+    //    Numbered: "1.  text" (2+ spaces) → "1. text"
+    markdown = markdown.replace(/^(\d+\.)\s+/gm, '$1 ');
+    //    Bulleted: "*  text" or "-  text" → "* text" / "- text"
+    markdown = markdown.replace(/^([*\-])\s+/gm, '$1 ');
+    // ── End Gemini paste-cleaning ────────────────────────────────
+
+    // Convert LaTeX math delimiters to Anki MathJax format (double backslashes required)
+    // Block math first ($$...$$) → \\[...\\]
+    markdown = markdown.replace(/\$\$(.*?)\$\$/gs, '\\\\[$1\\\\]');
+    // Inline math ($...$) → \\(...\\)  — lookbehind guards against \$ escapes
+    markdown = markdown.replace(/(?<!\\)\$([^\s$][^$]*?[^\s$]|[^\s$])\$/g, '\\\\($1\\\\)');
+    // Normalise any pre-existing \[, \], \(, \) from Gemini → double-backslash versions
+    markdown = markdown.replace(/\\\[/g, '\\\\[').replace(/\\\]/g, '\\\\]');
+    markdown = markdown.replace(/\\\(/g, '\\\\(').replace(/\\\)/g, '\\\\)');
 
     marked.setOptions({ gfm: true, breaks: false });
     marked.use({ renderer: buildRenderer() });
